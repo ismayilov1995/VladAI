@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import math
 import random
+import sys
 from pathlib import Path
 
 OUT_DIR = Path(__file__).resolve().parent.parent / "backend" / "libraries" / "marble"
@@ -184,7 +185,7 @@ def main() -> None:
         "unit": "mm",
         "rapport_coverage": RAPPORT_COVERAGE,
         "pieces_file": "pieces.json",
-        "reference_svg": "mosaic-piece-library.svg",
+        "reference_svg": "pieces.svg",
         "description": (
             "Irregular marble tesserae, 22 pieces. Rapport density 56%, which is "
             "the designer's intended coverage and the app's default target."
@@ -200,36 +201,14 @@ def main() -> None:
         json.dumps(index_doc, indent=1) + "\n", encoding="utf-8"
     )
 
-    # Reference sheet: the pieces laid out on a grid, one <path> each, so the
-    # library is inspectable in any SVG viewer.
-    cols = 6
-    cell = SIZE_MAX_MM * 1.25
-    rows = math.ceil(len(pieces) / cols)
-    width = cols * cell
-    height = rows * cell
-    parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width:.2f}mm" '
-        f'height="{height:.2f}mm" viewBox="0 0 {width:.2f} {height:.2f}">',
-        '<g fill="none" stroke="#1c1c1c" stroke-width="0.3">',
-    ]
-    for i, piece in enumerate(pieces):
-        flat = piece["rings"][0]
-        ox = (i % cols) * cell + cell / 2
-        oy = (i // cols) * cell + cell / 2
-        coords = [
-            f"{flat[j] + ox:.3f},{flat[j + 1] + oy:.3f}"
-            for j in range(0, len(flat), 2)
-        ]
-        parts.append(f'<path id="{piece["id"]}" d="M{" L".join(coords)} Z"/>')
-    parts.append("</g>")
-    parts.append('<g fill="#c0392b" stroke="none">')
-    for i, piece in enumerate(pieces):
-        ox = (i % cols) * cell + cell / 2
-        oy = (i // cols) * cell + cell / 2
-        for ax, ay in piece["attach"]:
-            parts.append(f'<circle cx="{ax + ox:.3f}" cy="{ay + oy:.3f}" r="0.5"/>')
-    parts.append("</g></svg>")
-    (OUT_DIR / "mosaic-piece-library.svg").write_text("\n".join(parts) + "\n", encoding="utf-8")
+    # The viewable library file is produced by the extractor, so there is one
+    # definition of what a clean pieces.svg looks like rather than two.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from extract_pieces_svg import build_pieces_svg  # noqa: E402
+    from mosaic_fill.library import load_library  # noqa: E402
+
+    library = load_library(OUT_DIR)
+    (OUT_DIR / "pieces.svg").write_text(build_pieces_svg(library), encoding="utf-8")
 
     areas = [polygon_area([(flat[j], flat[j + 1])
                           for j in range(0, len(flat), 2)])

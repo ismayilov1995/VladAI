@@ -153,15 +153,82 @@ def _pieces_from_json(data: dict, scale_to_mm: float) -> list[Piece]:
     return pieces
 
 
+# Markers used by the clean pieces.svg format (see tools/extract_pieces_svg.py).
+# They are what the loader keys on, so a wrapper or layer group is never
+# mistaken for a piece, nor a stitch point for geometry.
+PIECE_CLASS = "piece"
+ATTACH_CLASS = "attach"
+
+_GEOMETRY_TAGS = ("path", "rect", "circle", "ellipse", "polygon")
+
+
+def _local_tag(element: ET.Element) -> str:
+    return element.tag.rsplit("}", 1)[-1]
+
+
+def _classes(attrs: dict[str, str]) -> set[str]:
+    return set((attrs.get("class") or "").split())
+
+
+def _piece_from_group(
+    group: ET.Element, scale_to_mm: float, fallback_index: int,
+) -> Piece | None:
+    """One ``<g class="piece">``: its geometry, plus any attachment points."""
+    rings: list[Ring] = []
+    attach: list[tuple[float, float]] = []
+    for child in group:
+        tag = _local_tag(child)
+        if tag not in _GEOMETRY_TAGS:
+            continue
+        attrs = dict(child.attrib)
+        if ATTACH_CLASS in _classes(attrs):
+            attach.append((
+                float(attrs.get("cx", 0.0)) * scale_to_mm,
+                float(attrs.get("cy", 0.0)) * scale_to_mm,
+            ))
+            continue
+        for ring in shape_to_rings(tag, attrs, DEFAULT_TOLERANCE):
+            rings.append([(x * scale_to_mm, y * scale_to_mm) for x, y in ring])
+    if not rings:
+        return None
+    piece_id = group.get("id") or f"mp{fallback_index:02d}"
+    return _centre_piece(piece_id, rings, attach)
+
+
 def _pieces_from_svg(svg_path: Path, scale_to_mm: float) -> list[Piece]:
-    """Every drawable element in the reference SVG becomes one piece."""
+    """Read pieces from an SVG.
+
+    Two shapes are understood. A file written by the extractor marks each piece
+    as ``<g class="piece">`` and each stitch point as ``<circle class="attach">``,
+    and that is read exactly. Any other SVG - a hand-traced sheet, say - falls
+    back to treating every drawable element as its own piece, which is the only
+    sensible reading when the file says nothing about its own structure.
+    """
     root = ET.fromstring(svg_path.read_text(encoding="utf-8"))
-    pieces: list[Piece] = []
+
+    marked = [
+        element for element in root.iter()
+        if _local_tag(element) == "g" and PIECE_CLASS in _classes(dict(element.attrib))
+    ]
+    if marked:
+        pieces: list[Piece] = []
+        for group in marked:
+            piece = _piece_from_group(group, scale_to_mm, len(pieces) + 1)
+            if piece is not None:
+                pieces.append(piece)
+        if pieces:
+            return pieces
+
+    pieces = []
     for element in root.iter():
-        tag = element.tag.rsplit("}", 1)[-1]
-        if tag not in ("path", "rect", "circle", "ellipse", "polygon"):
+        tag = _local_tag(element)
+        if tag not in _GEOMETRY_TAGS:
             continue
         attrs = dict(element.attrib)
+        # An unmarked file has no stitch points, but one converted from the
+        # marked format might still carry the marker; never read it as a piece.
+        if ATTACH_CLASS in _classes(attrs):
+            continue
         rings = shape_to_rings(tag, attrs, DEFAULT_TOLERANCE)
         if not rings:
             continue

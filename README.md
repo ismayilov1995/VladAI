@@ -258,7 +258,7 @@ anywhere.
 backend/libraries/yourlibrary/
   index.json
   pieces.json                  (optional)
-  reference.svg                (optional)
+  pieces.svg                   (optional)
 ```
 
 ```json
@@ -268,14 +268,14 @@ backend/libraries/yourlibrary/
   "unit": "mm",
   "rapport_coverage": 0.56,
   "pieces_file": "pieces.json",
-  "reference_svg": "reference.svg",
+  "reference_svg": "pieces.svg",
   "description": "…"
 }
 ```
 
-Geometry comes from `pieces.json` when present; otherwise every drawable
-element in `reference_svg` becomes one piece, so a library can start life as a
-traced SVG alone. Pieces are re-centred on their centroids at load time.
+Geometry comes from `pieces.json` when present, and otherwise from
+`reference_svg`, so a library can start life as an SVG alone. Pieces are
+re-centred on their centroids at load time.
 
 `pieces.json` holds flat coordinate rings in the declared unit:
 
@@ -293,6 +293,42 @@ the same coordinates as the rings. A library that omits it simply has nothing
 for the attachment-point toggle to draw, and the toggle is disabled.
 
 A folder that fails to load is skipped rather than taking the service down.
+
+### pieces.svg
+
+`pieces.svg` is the library's base geometry as a viewable file. Data and
+presentation are kept apart in it:
+
+```xml
+<defs>
+  <g id="mp07" class="piece">
+    <path d="M-6.2,-3.1 …Z"/>                      <!-- outline, mm, centroid-centred -->
+    <circle class="attach" cx="-2.1" cy="0" r="0.45"/>   <!-- stitch-down point -->
+  </g>
+</defs>
+<g …>
+  <use href="#mp07" transform="translate(41.9 13.9)"/>   <!-- contact sheet only -->
+</g>
+```
+
+The `<defs>` block is the library. Every piece sits in its own coordinates —
+millimetres, centred on its own centroid — which is exactly the frame the
+packer and the export use, so nothing has to be un-done on load. The contact
+sheet underneath is `<use>` references and carries no geometry; deleting it
+loses nothing but the ability to open the file and look at it.
+
+The two class markers are what the loader keys on, and they exist to stop two
+specific misreadings: a `class="attach"` dot being taken for a tiny piece, and
+a wrapper or layer group being taken for one enormous piece. An SVG with no
+markers — a hand-traced sheet, say — falls back to one piece per drawable
+element, which is the only sensible reading of a file that says nothing about
+its own structure.
+
+Regenerate it from whatever the loader currently reads:
+
+```sh
+python tools/extract_pieces_svg.py --library marble
+```
 
 ---
 
@@ -374,6 +410,9 @@ pipeline is exercisable end to end:
   inside its own outline. The outlines are generated, not traced, and so are
   the stitch points — the real library's own attachment data should replace
   them.
+* `tools/extract_pieces_svg.py` — writes `pieces.svg` from whatever geometry
+  the loader currently reads. It is not a stand-in: point it at the real
+  library once that lands and it will extract that instead.
 * `tools/make_velvet_panel.py` — a gown front panel with a shaped hem, a
   neckline cut out as a hole, and a 100 mm `#calib` square, in CSS pixels
   (3.779528 units/mm).
@@ -384,8 +423,8 @@ file swap, not a code change:
 ```sh
 # drop the real files in and delete nothing else
 cp /path/to/pieces.json                backend/libraries/marble/
-cp /path/to/mosaic-piece-library.svg   backend/libraries/marble/
 cp /path/to/Velvet.svg                 samples/
+python tools/extract_pieces_svg.py --library marble   # refresh pieces.svg
 cd backend && python -m pytest
 ```
 

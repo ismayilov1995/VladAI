@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  MARBLE mosaic - base geometry.
+
+  Canonical data lives in <defs>: one <g class="piece"> per piece, outline
+  in millimetres, centred on the piece's own centroid. Attachment points are the
+  circles marked class="attach" inside each group.
+
+  The class markers are what a loader keys on, so a wrapper or layer group can
+  never be mistaken for a piece, nor a stitch point for geometry.
+
+  The contact sheet below is <use> references only - presentation, not data.
+  Editing a piece means editing its <defs> entry; the sheet follows.
+
+  22 pieces, 9.4-24.9 mm at scale 1.0, 39 attachment points.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="167.4mm" height="111.6mm"
+     viewBox="0 0 167.4 111.6">
+  <title>MARBLE mosaic - 22 pieces</title>
+  <desc>Base geometry in millimetres, each piece centred on its centroid.</desc>
+
+<defs>
+  <g id="mp01" class="piece">
+    <path d="M-4.9789,2.0037 L-0.0985,-3.7543 L4.4211,-0.8361 L1.567,2.8111 Z"/>
+    <circle class="attach" cx="0" cy="0" r="0.45"/>
+  </g>
+  <g id="mp02" class="piece">
+    <path d="M-4.3961,-0.2213 L-3.2182,-2.8341 L5.1227,-1.6186 L4.919,0.6615 L-2.4075,3.5587 Z"/>
+    <circle class="attach" cx="0" cy="0" r="0.45"/>
+  </g>
+  <g id="mp03" class="piece">
+    <path d="M-4.1263,3.2518 L-4.1344,0.0663 L-2.9876,-3.1277 L1.5396,-5.2109 L4.3992,-0.9932 L3.487,3.0194 L-0.4863,4.5493 Z"/>
+    <circle class="attach" cx="0" cy="0" r="0.45"/>
+  </g>
+  <g id="mp04" class="piece">
+    <path d="M3.4718,4.467 L-3.219,2.8585 L-2.8016,-5.622 L3.3499,-1.5316 Z"/>
+    <circle class="attach" cx="0" cy="0" r="0.45"/>
+  </g>
+  <g id="mp05" class="piece">
+    <path d="M5.1573,1.6114 L-0.6808,4.7073 L-5.3343,0.2821 L-2.8755,-4.0515 L3.8975,-2.9692 Z"/>
+    <circle class="attach" cx="0" cy="0" r="0.45"/>
+  </g>
+  <g id="mp06" class="piece">
+    <path d="M1.4971,5.6802 L-4.6242,-0.6717 L-0.4184,-5.2798 L4.0004,-0.0119 Z"/>
+    <circle class="attach" cx="0" cy="0" r="0.45"/>
+  </g>
+  <g id="mp07" class="piece">
+    <path d="M0.4833,5.6052 L-3.4281,3.6134 L-3.9095,-2.4295 L1.0458,-5.8832 L4.7309,0.167 Z"/>
+    <circle class="attach" cx="0" cy="0" r="0.45"/>
+  </g>
+  <g id="mp08" class="piece">
+    <path d="M-5.7217,2.3612 L-5.442,-0.0389 L-0.2718,-5.8736 L3.1535,-6.0912 L4.5859,2.8663 L1.5863,5.9814 Z"/>
+    <circle class="attach" cx="0" cy="0" r="0.45"/>
+  </g>
+  <g id="mp09" class="piece">
+    <path d="M5.2771,5.9084 L-0.9644,6.2139 L-5.44,0.3561 L-5.3455,-6.4953 L2.214,-5.2947 L5.636,0.3491 Z"/>
+    <circle class="attach" cx="0" cy="0" r="0.45"/>
+  </g>
+  <g id="mp10" class="piece">
+    <path d="M-6.3492,4.4126 L-4.4617,-2.9184 L1.252,-6.8697 L5.1358,-5.9745 L4.7175,2.872 L1.2424,6.5257 Z"/>
+    <circle class="attach" cx="0" cy="0" r="0.45"/>
+  </g>
+  <g id="mp11" class="piece">
+    <path d="M2.1561,6.9622 L-4.2033,3.4183 L-3.8714,-4.8183 L-1.5214,-7.167 L5.3991,-0.9654 Z"/>
+    <circle class="attach" cx="0" cy="-3.1085" r="0.45"/>
+    <circle class="attach" cx="0" cy="3.1084" r="0.45"/>
+  </g>
+  <g id="mp12" class="piece">
+    <path d="M4.1903,7.6153 L-2.9254,7.5979 L-7.5671,-4.1398 L-0.018,-7.2929 L6.5215,-5.3012 Z"/>
+    <circle class="attach" cx="0" cy="-3.2798" r="0.45"/>
+    <circle class="attach" cx="0" cy="3.2798" r="0.45"/>
+  </g>
+  <g id="mp13" class="piece">
+    <path d="M-4.1443,7.2013 L-7.2346,1.2458 L-1.4241,-8.5297 L4.9229,-4.9564 L7.6558,-2.7275 L3.3332,6.4788 Z"/>
+    <circle class="attach" cx="0" cy="-3.4608" r="0.45"/>
+    <circle class="attach" cx="0" cy="3.4609" r="0.45"/>
+  </g>
+  <g id="mp14" class="piece">
+    <path d="M-5.8475,7.29 L-7.6829,-1.1108 L-2.4213,-5.9918 L4.292,-6.7006 L8.9131,-5.2977 L5.519,2.7533 L-1.2211,7.7602 Z"/>
+    <circle class="attach" cx="-3.6511" cy="0" r="0.45"/>
+    <circle class="attach" cx="3.6511" cy="0" r="0.45"/>
+  </g>
+  <g id="mp15" class="piece">
+    <path d="M3.7612,9.2029 L-4.6924,5.2792 L-6.8516,-4.7633 L-2.5553,-8.2989 L3.7987,-6.274 L6.7332,0.6211 Z"/>
+    <circle class="attach" cx="0" cy="-3.8504" r="0.45"/>
+    <circle class="attach" cx="0" cy="3.8504" r="0.45"/>
+  </g>
+  <g id="mp16" class="piece">
+    <path d="M8.3364,5.9369 L-1.8748,8.6089 L-10.111,-3.7626 L-2.4092,-8.1633 L6.7729,-4.8601 Z"/>
+    <circle class="attach" cx="-4.0585" cy="0" r="0.45"/>
+    <circle class="attach" cx="4.0584" cy="0" r="0.45"/>
+  </g>
+  <g id="mp17" class="piece">
+    <path d="M7.6699,7.3233 L2.1737,9.7435 L-10.2665,-3.1733 L2.7652,-9.6881 Z"/>
+    <circle class="attach" cx="0" cy="-4.275" r="0.45"/>
+    <circle class="attach" cx="0" cy="4.2749" r="0.45"/>
+  </g>
+  <g id="mp18" class="piece">
+    <path d="M4.4184,11.5299 L-5.6058,6.0406 L-7.4517,-8.9235 L7.3589,-6.9361 Z"/>
+    <circle class="attach" cx="0" cy="-5.1133" r="0.45"/>
+    <circle class="attach" cx="0" cy="0" r="0.45"/>
+    <circle class="attach" cx="0" cy="5.1134" r="0.45"/>
+  </g>
+  <g id="mp19" class="piece">
+    <path d="M-8.7728,8.9226 L-9.5611,-3.0593 L7.7048,-7.65 L11.9509,0.5565 Z"/>
+    <circle class="attach" cx="-5.378" cy="0" r="0.45"/>
+    <circle class="attach" cx="0" cy="0" r="0.45"/>
+    <circle class="attach" cx="5.378" cy="0" r="0.45"/>
+  </g>
+  <g id="mp20" class="piece">
+    <path d="M0.814,10.741 L-10.0762,0.7803 L3.879,-11.8654 L7.4426,1.9002 Z"/>
+    <circle class="attach" cx="0" cy="-5.6516" r="0.45"/>
+    <circle class="attach" cx="0" cy="0" r="0.45"/>
+    <circle class="attach" cx="0" cy="5.6516" r="0.45"/>
+  </g>
+  <g id="mp21" class="piece">
+    <path d="M10.765,3.778 L9.7687,9.1018 L-3.1381,10.8077 L-9.8437,5.9891 L-12.4274,-1.7975 L-0.1007,-12.9283 L7.1699,-9.8806 Z"/>
+    <circle class="attach" cx="0" cy="-5.934" r="0.45"/>
+    <circle class="attach" cx="0" cy="0" r="0.45"/>
+    <circle class="attach" cx="0" cy="5.934" r="0.45"/>
+  </g>
+  <g id="mp22" class="piece">
+    <path d="M-11.0665,1.5092 L-6.2727,-7.9757 L13.8335,-9.2038 L-1.2523,14.4654 Z"/>
+    <circle class="attach" cx="-6.225" cy="0" r="0.45"/>
+    <circle class="attach" cx="0" cy="0" r="0.45"/>
+    <circle class="attach" cx="6.225" cy="0" r="0.45"/>
+  </g>
+</defs>
+
+  <g fill="none" stroke="#1c1c1c" stroke-width="0.25"
+     stroke-linejoin="round" stroke-linecap="round">
+    <use href="#mp01" x="0" y="0" transform="translate(13.95 13.95)"/>
+    <use href="#mp02" x="0" y="0" transform="translate(41.85 13.95)"/>
+    <use href="#mp03" x="0" y="0" transform="translate(69.75 13.95)"/>
+    <use href="#mp04" x="0" y="0" transform="translate(97.65 13.95)"/>
+    <use href="#mp05" x="0" y="0" transform="translate(125.55 13.95)"/>
+    <use href="#mp06" x="0" y="0" transform="translate(153.45 13.95)"/>
+    <use href="#mp07" x="0" y="0" transform="translate(13.95 41.85)"/>
+    <use href="#mp08" x="0" y="0" transform="translate(41.85 41.85)"/>
+    <use href="#mp09" x="0" y="0" transform="translate(69.75 41.85)"/>
+    <use href="#mp10" x="0" y="0" transform="translate(97.65 41.85)"/>
+    <use href="#mp11" x="0" y="0" transform="translate(125.55 41.85)"/>
+    <use href="#mp12" x="0" y="0" transform="translate(153.45 41.85)"/>
+    <use href="#mp13" x="0" y="0" transform="translate(13.95 69.75)"/>
+    <use href="#mp14" x="0" y="0" transform="translate(41.85 69.75)"/>
+    <use href="#mp15" x="0" y="0" transform="translate(69.75 69.75)"/>
+    <use href="#mp16" x="0" y="0" transform="translate(97.65 69.75)"/>
+    <use href="#mp17" x="0" y="0" transform="translate(125.55 69.75)"/>
+    <use href="#mp18" x="0" y="0" transform="translate(153.45 69.75)"/>
+    <use href="#mp19" x="0" y="0" transform="translate(13.95 97.65)"/>
+    <use href="#mp20" x="0" y="0" transform="translate(41.85 97.65)"/>
+    <use href="#mp21" x="0" y="0" transform="translate(69.75 97.65)"/>
+    <use href="#mp22" x="0" y="0" transform="translate(97.65 97.65)"/>
+  </g>
+  <style>
+    .attach { fill: #c0392b; stroke: none; }
+  </style>
+</svg>
