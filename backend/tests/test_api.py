@@ -69,6 +69,15 @@ class TestHealthAndLibraries:
             assert piece["rings"] and len(piece["rings"][0]) >= 6
             assert piece["area_mm2"] > 0
 
+    def test_library_detail_exposes_attachment_points(self, client):
+        """The frontend draws the dots, so it needs the points."""
+        body = client.get("/api/libraries/marble").json()
+        total = sum(len(piece["attach"]) for piece in body["pieces"])
+        assert total > 0
+        for piece in body["pieces"]:
+            for point in piece["attach"]:
+                assert len(point) == 2
+
     def test_library_sizes_match_the_documented_envelope(self, client):
         body = client.get("/api/libraries/marble").json()
         low, high = body["size_range_mm"]

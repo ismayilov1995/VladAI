@@ -47,6 +47,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="keep pieces this many mm clear of the panel edge")
     parser.add_argument("--shape-id", action="append", default=None,
                         help="restrict the fill to these element ids (repeatable)")
+    parser.add_argument("--attach-dots", action="store_true",
+                        help="mark each piece's stitch-down points in the exported SVG")
+    parser.add_argument("--attach-radius", type=float, default=0.45,
+                        help="attachment dot radius in mm (default: 0.45)")
     parser.add_argument("--out", type=Path, default=None, help="write the filled SVG here")
     parser.add_argument("--json", type=Path, default=None, help="write placement JSON here")
     parser.add_argument("--check-overlaps", action="store_true",
@@ -98,6 +102,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"region     : {stats['region_mm2'] / 1e6:.4f} m^2")
     print(f"pieces     : {stats['count']}")
     print(f"coverage   : {stats['coverage'] * 100:.2f}%")
+    if args.attach_dots:
+        per_piece = {p.id: len(p.attach) for p in library.pieces}
+        total = sum(per_piece.get(p.piece, 0) for p in result.placements)
+        print(f"attach pts : {total} across {stats['count']} pieces")
     print(f"pack time  : {elapsed:.2f}s")
 
     if args.check_overlaps:
@@ -110,6 +118,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.out:
         filled = build_filled_svg(
             doc.source, result.placements, library, params.piece_scale, units_per_mm,
+            show_attach=args.attach_dots, attach_dot_radius_mm=args.attach_radius,
         )
         args.out.write_text(filled, encoding="utf-8")
         print(f"wrote {args.out}")

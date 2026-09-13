@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { LibraryDetail, PackResponse, Placement } from '../types'
+import { ATTACH_DOT_RADIUS_MM } from '../types'
 import { PALETTE, PANEL_EDGE, PANEL_FILL, colourForClass } from '../lib/palette'
 
 /**
@@ -25,6 +26,7 @@ interface Props {
   library: LibraryDetail | null
   pieceScale: number
   busy: boolean
+  showAttach: boolean
 }
 
 function piecePath(rings: number[][], scale: number): Path2D {
@@ -55,7 +57,27 @@ function panelPath(panels: PackResponse['panels']): Path2D {
   return path
 }
 
-export function PreviewCanvas({ pack, library, pieceScale, busy }: Props) {
+/**
+ * Stitch-down points for one piece, as arcs around its own origin.
+ *
+ * Only the positions scale with the piece; the radius is passed in already
+ * resolved, because a placement matrix carries translation and rotation only,
+ * so whatever radius is baked here survives to the screen unchanged.
+ */
+function dotPath(attach: number[][], pieceScale: number, radius: number): Path2D | null {
+  if (attach.length === 0) return null
+  const path = new Path2D()
+  for (const point of attach) {
+    const x = point[0]
+    const y = point[1]
+    if (x === undefined || y === undefined) continue
+    path.moveTo(x * pieceScale + radius, y * pieceScale)
+    path.arc(x * pieceScale, y * pieceScale, radius, 0, Math.PI * 2)
+  }
+  return path
+}
+
+export function PreviewCanvas({ pack, library, pieceScale, busy, showAttach }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const [size, setSize] = useState({ width: 800, height: 600 })
@@ -151,20 +173,44 @@ export function PreviewCanvas({ pack, library, pieceScale, busy }: Props) {
       ctx.stroke(outline)
     }
 
-    // Bucket placements by colour class, then stroke each bucket once.
+    // Bucket placements by colour class, then draw each bucket once.
     const buckets = new Map<string, Path2D>()
+    const dotBuckets = new Map<string, Path2D>()
+
+    // True size once zoomed in, but never so small it vanishes: at fit zoom a
+    // 0.45 mm dot is a fraction of a pixel, and a toggle that appears to do
+    // nothing is worse than one that shows an honest stipple.
+    const dotRadius = Math.max(ATTACH_DOT_RADIUS_MM, 0.7 / view.scale)
+    const dotShapes = new Map<string, Path2D | null>()
+    if (showAttach && library) {
+      for (const piece of library.pieces) {
+        dotShapes.set(piece.id, dotPath(piece.attach, pieceScale, dotRadius))
+      }
+    }
+
     for (const placement of pack.placements as Placement[]) {
       const shape = pieceShapes.get(placement.piece)
       if (!shape) continue
+      const matrix = new DOMMatrix()
+        .translateSelf(placement.x, placement.y)
+        .rotateSelf(placement.angle)
+
       let bucket = buckets.get(placement.cls)
       if (!bucket) {
         bucket = new Path2D()
         buckets.set(placement.cls, bucket)
       }
-      const matrix = new DOMMatrix()
-        .translateSelf(placement.x, placement.y)
-        .rotateSelf(placement.angle)
       bucket.addPath(shape, matrix)
+
+      const dots = dotShapes.get(placement.piece)
+      if (dots) {
+        let dotBucket = dotBuckets.get(placement.cls)
+        if (!dotBucket) {
+          dotBucket = new Path2D()
+          dotBuckets.set(placement.cls, dotBucket)
+        }
+        dotBucket.addPath(dots, matrix)
+      }
     }
 
     // A hairline in device pixels regardless of zoom, so a zoomed-out panel
@@ -176,7 +222,12 @@ export function PreviewCanvas({ pack, library, pieceScale, busy }: Props) {
       ctx.strokeStyle = colourForClass(cls)
       ctx.stroke(path)
     }
-  }, [pack, view, size, pieceShapes, outline])
+    // Dots go on top of the outlines, filled rather than stroked.
+    for (const [cls, path] of dotBuckets) {
+      ctx.fillStyle = colourForClass(cls)
+      ctx.fill(path)
+    }
+  }, [pack, view, size, pieceShapes, outline, showAttach, library, pieceScale])
 
   const onWheel = useCallback((event: React.WheelEvent<HTMLCanvasElement>) => {
     if (!view) return

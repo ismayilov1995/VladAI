@@ -110,3 +110,24 @@ export const DEFAULT_PARAMS: PackParams = {
 
 /** Above this the browser starts to feel the piece count; the UI warns. */
 export const PIECE_COUNT_WARNING = 5000
+
+/**
+ * Radius of an attachment dot, in millimetres on the finished piece. It marks
+ * a needle penetration point, so it stays a fixed physical size: the dot's
+ * position scales with the piece, its radius does not.
+ */
+export const ATTACH_DOT_RADIUS_MM = 0.45
+
+/**
+ * Options that change how a pack is drawn but not what was packed.
+ *
+ * Kept apart from PackParams on purpose: these must never trigger a re-pack,
+ * and they are not part of the server-side cache key.
+ */
+export interface RenderOptions {
+  showAttach: boolean
+}
+
+export const DEFAULT_RENDER_OPTIONS: RenderOptions = {
+  showAttach: false,
+}

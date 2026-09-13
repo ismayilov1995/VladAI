@@ -1,4 +1,4 @@
-import type { LibrarySummary, PackParams } from '../types'
+import type { LibrarySummary, PackParams, RenderOptions } from '../types'
 
 interface SliderProps {
   label: string
@@ -39,9 +39,44 @@ function Slider({
   )
 }
 
+function Toggle({
+  label, checked, hint, disabled, onChange,
+}: {
+  label: string
+  checked: boolean
+  hint?: string | undefined
+  disabled?: boolean | undefined
+  onChange: (value: boolean) => void
+}) {
+  return (
+    <div>
+      <label className={`flex cursor-pointer items-center gap-2.5
+                        ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}>
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={disabled ?? false}
+          onChange={(event) => { onChange(event.target.checked) }}
+          className="h-3.5 w-3.5 rounded border-neutral-600 bg-neutral-900 accent-amber-400"
+        />
+        <span className="text-xs font-medium text-neutral-300">{label}</span>
+      </label>
+      {hint && (
+        <span className="mt-0.5 block pl-6 text-[11px] leading-snug text-neutral-500">
+          {hint}
+        </span>
+      )}
+    </div>
+  )
+}
+
 interface Props {
   params: PackParams
   onParams: (patch: Partial<PackParams>) => void
+  render: RenderOptions
+  onRender: (patch: Partial<RenderOptions>) => void
+  /** Total attachment points defined by the selected library. */
+  attachPointCount: number
   libraries: LibrarySummary[]
   libraryId: string
   onLibrary: (id: string) => void
@@ -54,7 +89,8 @@ interface Props {
 }
 
 export function Controls({
-  params, onParams, libraries, libraryId, onLibrary,
+  params, onParams, render, onRender, attachPointCount,
+  libraries, libraryId, onLibrary,
   calibMm, onCalibMm, needsScale, unitsPerMm, onUnitsPerMm, disabled,
 }: Props) {
   const library = libraries.find((entry) => entry.id === libraryId)
@@ -184,6 +220,24 @@ export function Controls({
             />
           </>
         )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+          Markers
+        </h2>
+        <Toggle
+          label="Attachment points"
+          checked={render.showAttach}
+          disabled={attachPointCount === 0}
+          hint={
+            attachPointCount === 0
+              ? 'This library defines no attachment points.'
+              : `Dots where each piece is stitched down — ${attachPointCount} across ` +
+                'the library. Redraws instantly; it does not re-pack.'
+          }
+          onChange={(value) => { onRender({ showAttach: value }) }}
+        />
       </section>
 
       <details className="group">

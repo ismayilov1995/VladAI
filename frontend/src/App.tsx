@@ -5,9 +5,9 @@ import { PreviewCanvas } from './components/PreviewCanvas'
 import { StatsBar } from './components/StatsBar'
 import { ApiError, getLibrary, listLibraries, packPanel, uploadPanel } from './lib/api'
 import { buildFilledSvg, downloadText, filledFilename } from './lib/svgExport'
-import { DEFAULT_PARAMS } from './types'
+import { DEFAULT_PARAMS, DEFAULT_RENDER_OPTIONS } from './types'
 import type {
-  LibraryDetail, LibrarySummary, PackParams, PackResponse, UploadResponse,
+  LibraryDetail, LibrarySummary, PackParams, PackResponse, RenderOptions, UploadResponse,
 } from './types'
 
 /** Settling time before a slider change becomes a pack request. */
@@ -26,6 +26,9 @@ export function App() {
 
   const [panel, setPanel] = useState<PanelState | null>(null)
   const [params, setParams] = useState<PackParams>(DEFAULT_PARAMS)
+  // Render options are deliberately not part of `params`: they change how the
+  // pack is drawn, not what was packed, so they must never trigger a re-pack.
+  const [render, setRender] = useState<RenderOptions>(DEFAULT_RENDER_OPTIONS)
   const [calibMm, setCalibMm] = useState(100)
   const [unitsPerMm, setUnitsPerMm] = useState<number | null>(null)
 
@@ -84,6 +87,10 @@ export function App() {
     setParams((current) => ({ ...current, ...patch }))
   }, [])
 
+  const patchRender = useCallback((patch: Partial<RenderOptions>) => {
+    setRender((current) => ({ ...current, ...patch }))
+  }, [])
+
   // Re-pack whenever anything that affects the result settles.
   useEffect(() => {
     if (!panel) return
@@ -138,13 +145,19 @@ export function App() {
       placements: pack.placements,
       pieceScale: params.piece_scale,
       unitsPerMm: pack.units_per_mm,
+      showAttach: render.showAttach,
     })
     downloadText(filledFilename(panel.upload.filename), svg)
-  }, [pack, library, panel, params.piece_scale])
+  }, [pack, library, panel, params.piece_scale, render.showAttach])
 
   const provenance = useMemo(
     () => libraries.find((entry) => entry.id === libraryId)?.provenance ?? '',
     [libraries, libraryId],
+  )
+
+  const attachPointCount = useMemo(
+    () => library?.pieces.reduce((total, piece) => total + piece.attach.length, 0) ?? 0,
+    [library],
   )
 
   return (
@@ -175,6 +188,9 @@ export function App() {
         <Controls
           params={params}
           onParams={patchParams}
+          render={render}
+          onRender={patchRender}
+          attachPointCount={attachPointCount}
           libraries={libraries}
           libraryId={libraryId}
           onLibrary={setLibraryId}
@@ -218,6 +234,7 @@ export function App() {
           library={library}
           pieceScale={params.piece_scale}
           busy={busy}
+          showAttach={render.showAttach}
         />
       </main>
     </div>

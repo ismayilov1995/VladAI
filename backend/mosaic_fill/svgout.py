@@ -27,6 +27,8 @@ from .packer import Placement
 
 FILL_GROUP_ID = "mosaic-fill"
 DEFAULT_PALETTE = ["#1d1d1f", "#8c7851", "#b08d57", "#d9c7a7", "#5c6b73", "#a63d40"]
+# Radius of an attachment dot, in millimetres on the finished piece.
+DEFAULT_ATTACH_RADIUS_MM = 0.45
 
 
 def _fmt(value: float, places: int = 3) -> str:
@@ -47,13 +49,24 @@ def piece_path_data(rings: Sequence[Sequence[tuple[float, float]]], scale: float
 
 def build_defs(
     library: Library, piece_scale: float, units_per_mm: float,
+    show_attach: bool = False, attach_dot_radius_mm: float = DEFAULT_ATTACH_RADIUS_MM,
 ) -> tuple[str, dict[str, str]]:
     """The ``<defs>`` block, plus a map from piece id to its symbol id.
 
     Piece scale and units/mm are baked into the geometry here, which is what
     lets each ``<use>`` carry nothing but a translate and a rotate.
+
+    Attachment dots go inside the same group as the outline, so they are
+    translated and rotated with the piece for free rather than needing a second
+    pass of per-placement transforms. They are filled with ``currentColor``,
+    which the ``<use>`` sets via a ``color`` attribute: ``color`` is inherited,
+    so like ``stroke`` it crosses into the shadow tree, and the dots take the
+    thread colour of the piece they belong to.
     """
     factor = piece_scale * units_per_mm
+    # The dot marks a needle penetration point, so it stays a fixed physical
+    # size: its position scales with the piece, its radius does not.
+    radius = attach_dot_radius_mm * units_per_mm
     symbols: dict[str, str] = {}
     parts: list[str] = []
     for index, piece in enumerate(library.pieces, start=1):
@@ -62,9 +75,15 @@ def build_defs(
         data = piece_path_data(piece.rings, factor)
         if not data:
             continue
-        parts.append(
-            f'  <g id="{symbol_id}"><path fill="none" d="{data}"/></g>'
-        )
+        body = f'<path fill="none" d="{data}"/>'
+        if show_attach and piece.attach and radius > 0:
+            dots = "".join(
+                f'<circle cx="{_fmt(x * factor)}" cy="{_fmt(y * factor)}" '
+                f'r="{_fmt(radius)}" fill="currentColor" stroke="none"/>'
+                for x, y in piece.attach
+            )
+            body += dots
+        parts.append(f'  <g id="{symbol_id}">{body}</g>')
     return "\n".join(parts), symbols
 
 
@@ -74,6 +93,7 @@ def build_fill_group(
     units_per_mm: float,
     palette: Sequence[str] | None = None,
     stroke_width_mm: float = 0.25,
+    show_attach: bool = False,
 ) -> str:
     colours = list(palette) if palette else DEFAULT_PALETTE
     width = stroke_width_mm * units_per_mm
@@ -90,8 +110,12 @@ def build_fill_group(
         transform = f"translate({x} {y})"
         if angle != "0":
             transform += f" rotate({angle})"
+        # `color` feeds the dots' currentColor fill; it is only worth emitting
+        # when there are dots to colour.
+        tint = f' color="{colour}"' if show_attach else ""
         rows.append(
-            f'  <use href="#{symbol_id}" transform="{transform}" stroke="{colour}"/>'
+            f'  <use href="#{symbol_id}" transform="{transform}" '
+            f'stroke="{colour}"{tint}/>'
         )
     return (
         f'<g id="{FILL_GROUP_ID}" fill="none" stroke-width="{_fmt(width)}"\n'
@@ -112,14 +136,20 @@ def build_filled_svg(
     units_per_mm: float,
     palette: Sequence[str] | None = None,
     stroke_width_mm: float = 0.25,
+    show_attach: bool = False,
+    attach_dot_radius_mm: float = DEFAULT_ATTACH_RADIUS_MM,
 ) -> str:
     """Return the original document with one fill group appended.
 
     Everything already in the file is passed through untouched: the fill is
     additive, so removing the one appended group restores the upload exactly.
     """
-    defs, symbols = build_defs(library, piece_scale, units_per_mm)
-    group = build_fill_group(placements, symbols, units_per_mm, palette, stroke_width_mm)
+    defs, symbols = build_defs(
+        library, piece_scale, units_per_mm, show_attach, attach_dot_radius_mm,
+    )
+    group = build_fill_group(
+        placements, symbols, units_per_mm, palette, stroke_width_mm, show_attach,
+    )
     addition = f"<defs>\n{defs}\n</defs>\n{group}\n"
 
     match = _CLOSING_SVG.search(original_svg)

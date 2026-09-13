@@ -190,7 +190,26 @@ Bands across the panel at a chosen angle, with an optional bleed that softens
 the boundary so colours interleave rather than stopping dead. Each placement
 carries a colour class (`A`, `B`, …) which the export maps to a thread colour.
 
-### 5. Download
+### 5. Attachment points
+
+A toggle under **Markers** shows a dot at each point where a piece is stitched
+down — one on a small tessera, two or three spread along the long axis of a
+larger one that would otherwise swivel.
+
+It is a render option, not a packing parameter: flipping it redraws the canvas
+and changes the export, but **does not re-pack** and is not part of the cache
+key. The layout stays exactly as it was.
+
+In the export, dots live inside each piece's `<defs>` group, so they are
+translated and rotated by the same `<use>` transform as the outline and are
+defined once no matter how many placements reference them. They are filled with
+`currentColor`, which each `<use>` sets through a `color` attribute, so a dot
+takes the thread colour of the piece it belongs to.
+
+The dot marks a needle penetration point, so it stays a fixed physical size
+(0.45 mm radius): its position scales with the piece, its radius does not.
+
+### 6. Download
 
 The filled SVG is your original document with one group appended:
 
@@ -246,8 +265,16 @@ traced SVG alone. Pieces are re-centred on their centroids at load time.
 
 ```json
 { "unit": "mm",
-  "pieces": [ { "id": "mp01", "rings": [[0, 0, 10, 0, 10, 8, 0, 8]] } ] }
+  "pieces": [
+    { "id": "mp01",
+      "rings":  [[0, 0, 10, 0, 10, 8, 0, 8]],
+      "attach": [[5, 4]] }
+  ] }
 ```
+
+`attach` is optional: it lists the points where the piece is stitched down, in
+the same coordinates as the rings. A library that omits it simply has nothing
+for the attachment-point toggle to draw, and the toggle is disabled.
 
 A folder that fails to load is skipped rather than taking the service down.
 
@@ -264,6 +291,9 @@ python -m mosaic_fill.cli ../samples/Velvet.svg \
     --scale 2.0 --gap 1.0 --coverage 0.56 \
     --out filled.svg --json placements.json --check-overlaps
 ```
+
+`--attach-dots` marks the stitch-down points in the exported SVG, and
+`--attach-radius` sets their size in mm.
 
 `--units-per-mm` replaces the `#calib` convention for files that lack one.
 `python -m mosaic_fill.cli --help` lists the rest.
@@ -323,8 +353,11 @@ pipeline is exercisable end to end:
 
 * `tools/make_marble_library.py` — 22 pieces matching MARBLE's documented size
   envelope (9.4–24.9 mm at 1×, giving 14–37 mm at 1.5×, 19–50 mm at 2× and
-  28–75 mm at 3×) and its 56% rapport density. The outlines are generated, not
-  traced.
+  28–75 mm at 3×) and its 56% rapport density. It also derives 39 attachment
+  points across the set, one to three per piece by size, each verified to lie
+  inside its own outline. The outlines are generated, not traced, and so are
+  the stitch points — the real library's own attachment data should replace
+  them.
 * `tools/make_velvet_panel.py` — a gown front panel with a shaped hem, a
   neckline cut out as a hole, and a 100 mm `#calib` square, in CSS pixels
   (3.779528 units/mm).

@@ -20,6 +20,7 @@
  */
 
 import type { LibraryDetail, Placement } from '../types'
+import { ATTACH_DOT_RADIUS_MM } from '../types'
 import { colourForClass } from './palette'
 
 export const FILL_GROUP_ID = 'mosaic-fill'
@@ -49,7 +50,10 @@ export interface BuildOptions {
   placements: readonly Placement[]
   pieceScale: number
   unitsPerMm: number
-  strokeWidthMm?: number
+  strokeWidthMm?: number | undefined
+  /** Mark each piece's stitch-down points. */
+  showAttach?: boolean | undefined
+  attachDotRadiusMm?: number | undefined
 }
 
 const CLOSING_SVG = /<\/svg\s*>\s*$/i
@@ -57,6 +61,8 @@ const CLOSING_SVG = /<\/svg\s*>\s*$/i
 export function buildFilledSvg(options: BuildOptions): string {
   const { originalSvg, library, placements, pieceScale, unitsPerMm } = options
   const strokeWidthMm = options.strokeWidthMm ?? 0.25
+  const showAttach = options.showAttach ?? false
+  const dotRadius = (options.attachDotRadiusMm ?? ATTACH_DOT_RADIUS_MM) * unitsPerMm
 
   // Piece scale and units/mm are baked into the defs geometry, which is what
   // lets every <use> carry nothing but a translate and a rotate.
@@ -68,7 +74,23 @@ export function buildFilledSvg(options: BuildOptions): string {
     const symbolId = `mp${String(index + 1).padStart(2, '0')}`
     symbolFor.set(piece.id, symbolId)
     const data = piecePathData(piece.rings, factor)
-    if (data) defs.push(`  <g id="${symbolId}"><path fill="none" d="${data}"/></g>`)
+    if (!data) return
+    let body = `<path fill="none" d="${data}"/>`
+    if (showAttach && dotRadius > 0) {
+      // Dots sit inside the piece's own group, so the <use> transform carries
+      // them along for free. `currentColor` picks up the `color` attribute set
+      // on each <use>, which like `stroke` is inherited and so reaches into
+      // the shadow tree that a stylesheet rule could not.
+      for (const point of piece.attach) {
+        const ax = point[0]
+        const ay = point[1]
+        if (ax === undefined || ay === undefined) continue
+        body +=
+          `<circle cx="${fmt(ax * factor)}" cy="${fmt(ay * factor)}" ` +
+          `r="${fmt(dotRadius)}" fill="currentColor" stroke="none"/>`
+      }
+    }
+    defs.push(`  <g id="${symbolId}">${body}</g>`)
   })
 
   const uses: string[] = []
@@ -81,9 +103,11 @@ export function buildFilledSvg(options: BuildOptions): string {
     const transform = angle === '0'
       ? `translate(${x} ${y})`
       : `translate(${x} ${y}) rotate(${angle})`
+    const colour = colourForClass(placement.cls)
+    // `color` only earns its bytes when there are dots to tint.
+    const tint = showAttach ? ` color="${colour}"` : ''
     uses.push(
-      `  <use href="#${symbolId}" transform="${transform}" ` +
-      `stroke="${colourForClass(placement.cls)}"/>`,
+      `  <use href="#${symbolId}" transform="${transform}" stroke="${colour}"${tint}/>`,
     )
   }
 

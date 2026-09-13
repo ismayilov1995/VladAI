@@ -70,6 +70,80 @@ def make_shard(rng: random.Random, target_size: float) -> list[tuple[float, floa
     return [(round((x - cx) * k, 4), round((y - cy) * k, 4)) for x, y in shaped]
 
 
+def point_in_ring(ring: list[tuple[float, float]], px: float, py: float) -> bool:
+    """Ray-crossing test, used to keep generated attach points on the piece."""
+    inside = False
+    ax, ay = ring[-1]
+    for bx, by in ring:
+        if (ay > py) != (by > py):
+            t = (py - ay) / (by - ay)
+            if px < ax + t * (bx - ax):
+                inside = not inside
+        ax, ay = bx, by
+    return inside
+
+
+def ring_centroid(ring: list[tuple[float, float]]) -> tuple[float, float]:
+    area = 0.0
+    cx = cy = 0.0
+    px, py = ring[-1]
+    for x, y in ring:
+        f = px * y - x * py
+        area += f
+        cx += (px + x) * f
+        cy += (py + y) * f
+        px, py = x, y
+    if abs(area) < 1e-12:
+        return (0.0, 0.0)
+    return (cx / (3 * area), cy / (3 * area))
+
+
+def attach_points(ring: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """Where the piece is stitched down.
+
+    A tessera is tacked at one point if it is small enough not to swivel, and at
+    two or three spread along its long axis if it is not. Points are placed on
+    that axis through the centroid and then pulled inward until they sit inside
+    the outline, so an irregular or concave chip cannot end up with a stitch
+    point off the piece.
+    """
+    xs = [p[0] for p in ring]
+    ys = [p[1] for p in ring]
+    width = max(xs) - min(xs)
+    height = max(ys) - min(ys)
+    size = max(width, height)
+    count = 1 if size < 14.0 else (2 if size < 20.0 else 3)
+
+    cx, cy = ring_centroid(ring)
+    if not point_in_ring(ring, cx, cy):
+        cx, cy = (max(xs) + min(xs)) / 2, (max(ys) + min(ys)) / 2
+
+    if count == 1:
+        return [(round(cx, 4), round(cy, 4))]
+
+    # Unit vector along the longer bounding dimension.
+    ux, uy = (1.0, 0.0) if width >= height else (0.0, 1.0)
+    half = size / 2.0
+    offsets = [-0.44, 0.44] if count == 2 else [-0.5, 0.0, 0.5]
+
+    points: list[tuple[float, float]] = []
+    for fraction in offsets:
+        reach = fraction * half
+        # Walk in from the intended offset until the point is on the piece.
+        for shrink in (1.0, 0.8, 0.6, 0.45, 0.3, 0.15, 0.0):
+            x = cx + ux * reach * shrink
+            y = cy + uy * reach * shrink
+            if point_in_ring(ring, x, y):
+                points.append((round(x, 4), round(y, 4)))
+                break
+    # Collapse points that converged on the same spot.
+    unique: list[tuple[float, float]] = []
+    for point in points:
+        if all(math.dist(point, kept) > 0.6 for kept in unique):
+            unique.append(point)
+    return unique or [(round(cx, 4), round(cy, 4))]
+
+
 def polygon_area(ring: list[tuple[float, float]]) -> float:
     total = 0.0
     px, py = ring[-1]
@@ -96,7 +170,7 @@ def main() -> None:
         pieces.append({
             "id": f"mp{index:02d}",
             "rings": [[coord for point in ring for coord in point]],
-            "attach": [],
+            "attach": [[x, y] for x, y in attach_points(ring)],
         })
 
     (OUT_DIR / "pieces.json").write_text(
@@ -147,15 +221,24 @@ def main() -> None:
             for j in range(0, len(flat), 2)
         ]
         parts.append(f'<path id="{piece["id"]}" d="M{" L".join(coords)} Z"/>')
+    parts.append("</g>")
+    parts.append('<g fill="#c0392b" stroke="none">')
+    for i, piece in enumerate(pieces):
+        ox = (i % cols) * cell + cell / 2
+        oy = (i // cols) * cell + cell / 2
+        for ax, ay in piece["attach"]:
+            parts.append(f'<circle cx="{ax + ox:.3f}" cy="{ay + oy:.3f}" r="0.5"/>')
     parts.append("</g></svg>")
     (OUT_DIR / "mosaic-piece-library.svg").write_text("\n".join(parts) + "\n", encoding="utf-8")
 
     areas = [polygon_area([(flat[j], flat[j + 1])
                           for j in range(0, len(flat), 2)])
              for flat in (p["rings"][0] for p in pieces)]
+    dots = sum(len(p["attach"]) for p in pieces)
     print(f"wrote {len(pieces)} pieces to {OUT_DIR}")
     print(f"  size range : {min(sizes):.2f} - {max(sizes):.2f} mm")
     print(f"  mean area  : {sum(areas) / len(areas):.2f} mm^2")
+    print(f"  attach pts : {dots} across {len(pieces)} pieces")
 
 
 if __name__ == "__main__":
