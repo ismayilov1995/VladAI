@@ -1,4 +1,6 @@
-# syntax=docker/dockerfile:1
+# No `# syntax=` directive on purpose: it makes every build pull a frontend
+# image from Docker Hub first, and nothing here needs a feature the builder
+# does not already have. Please leave it off unless you add syntax that needs it.
 
 # ---------------------------------------------------------------------------
 # Stage 1: build the frontend.
