@@ -13,12 +13,20 @@ same shape, and the reasons for that shape are worth stating:
     shadow tree that outside selectors do not reach, so ``#mosaic .A path {}``
     matches nothing. Inherited presentation attributes on the ``<use>`` itself
     do cross into the clone, which is why this works and CSS does not.
+  * Each ``<use>`` carries **both** ``xlink:href`` and ``href``. Plain ``href``
+    is SVG 2; Illustrator reads SVG 1.1, where the attribute is ``xlink:href``,
+    and silently draws nothing for a reference it does not recognise. Browsers
+    take either, so a browser preview cannot catch this on its own.
+  * ``expand=True`` writes every placement as its own ``<path>`` instead. The
+    file is several times larger, but it carries no references at all, which is
+    the thing to reach for when a consumer mishandles ``<use>``.
   * The uploaded document is never modified; the fill is appended as one new
     group that can be deleted in one action.
 """
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Iterable, Sequence
 
@@ -26,7 +34,20 @@ from .library import Library
 from .packer import Placement
 
 FILL_GROUP_ID = "mosaic-fill"
-DEFAULT_PALETTE = ["#1d1d1f", "#8c7851", "#b08d57", "#d9c7a7", "#5c6b73", "#a63d40"]
+XLINK_NS = "http://www.w3.org/1999/xlink"
+# Kept in step with frontend/src/lib/palette.ts: one palette serves the preview
+# and the export, and every colour has to stay legible both on the preview's
+# dark fabric and on the white artboard an exported SVG opens onto.
+DEFAULT_PALETTE = [
+    "#b08d57",  # antique gold
+    "#a63d40",  # madder red
+    "#5f7d8c",  # slate blue
+    "#4a7c59",  # moss
+    "#c06c3e",  # terracotta
+    "#7a6a9b",  # lavender
+    "#8c7851",  # bronze
+    "#7d8c8a",  # sage
+]
 # Radius of an attachment dot, in millimetres on the finished piece.
 DEFAULT_ATTACH_RADIUS_MM = 0.45
 
@@ -113,10 +134,75 @@ def build_fill_group(
         # `color` feeds the dots' currentColor fill; it is only worth emitting
         # when there are dots to colour.
         tint = f' color="{colour}"' if show_attach else ""
+        # Both spellings: xlink:href for SVG 1.1 readers such as Illustrator,
+        # href for SVG 2. A reader that knows only one ignores the other.
         rows.append(
-            f'  <use href="#{symbol_id}" transform="{transform}" '
-            f'stroke="{colour}"{tint}/>'
+            f'  <use xlink:href="#{symbol_id}" href="#{symbol_id}" '
+            f'transform="{transform}" stroke="{colour}"{tint}/>'
         )
+    return (
+        f'<g id="{FILL_GROUP_ID}" xmlns:xlink="{XLINK_NS}" fill="none"\n'
+        f'   stroke-width="{_fmt(width)}" stroke-linejoin="round" stroke-linecap="round">\n'
+        + "\n".join(rows)
+        + "\n</g>"
+    )
+
+
+def build_expanded_group(
+    placements: Iterable[Placement],
+    library: Library,
+    piece_scale: float,
+    units_per_mm: float,
+    palette: Sequence[str] | None = None,
+    stroke_width_mm: float = 0.25,
+    show_attach: bool = False,
+    attach_dot_radius_mm: float = DEFAULT_ATTACH_RADIUS_MM,
+) -> str:
+    """Every placement as its own ``<path>``, with no references anywhere.
+
+    Bigger than the ``<use>`` form and equivalent to it on screen; the point is
+    that nothing has to resolve a reference to draw it.
+    """
+    colours = list(palette) if palette else DEFAULT_PALETTE
+    width = stroke_width_mm * units_per_mm
+    radius = attach_dot_radius_mm * units_per_mm
+    factor = piece_scale * units_per_mm
+    index = library.piece_index()
+    rows: list[str] = []
+
+    for placement in placements:
+        piece = index.get(placement.piece)
+        if piece is None:
+            continue
+        cls_index = max(0, ord(placement.cls[:1] or "A") - ord("A"))
+        colour = colours[cls_index % len(colours)] if colours else "#000000"
+        radians = math.radians(placement.angle)
+        cos, sin = math.cos(radians), math.sin(radians)
+        ox = placement.x * units_per_mm
+        oy = placement.y * units_per_mm
+
+        def place(px: float, py: float) -> tuple[float, float]:
+            sx, sy = px * factor, py * factor
+            return (sx * cos - sy * sin + ox, sx * sin + sy * cos + oy)
+
+        parts: list[str] = []
+        for ring in piece.rings:
+            if len(ring) < 3:
+                continue
+            points = [f"{_fmt(x)},{_fmt(y)}" for x, y in (place(px, py) for px, py in ring)]
+            parts.append(f"M{' L'.join(points)} Z")
+        if not parts:
+            continue
+        rows.append(f'  <path stroke="{colour}" d="{" ".join(parts)}"/>')
+
+        if show_attach and radius > 0:
+            for px, py in piece.attach:
+                cx, cy = place(px, py)
+                rows.append(
+                    f'  <circle cx="{_fmt(cx)}" cy="{_fmt(cy)}" r="{_fmt(radius)}" '
+                    f'fill="{colour}" stroke="none"/>'
+                )
+
     return (
         f'<g id="{FILL_GROUP_ID}" fill="none" stroke-width="{_fmt(width)}"\n'
         f'   stroke-linejoin="round" stroke-linecap="round">\n'
@@ -138,19 +224,26 @@ def build_filled_svg(
     stroke_width_mm: float = 0.25,
     show_attach: bool = False,
     attach_dot_radius_mm: float = DEFAULT_ATTACH_RADIUS_MM,
+    expand: bool = False,
 ) -> str:
     """Return the original document with one fill group appended.
 
     Everything already in the file is passed through untouched: the fill is
     additive, so removing the one appended group restores the upload exactly.
     """
-    defs, symbols = build_defs(
-        library, piece_scale, units_per_mm, show_attach, attach_dot_radius_mm,
-    )
-    group = build_fill_group(
-        placements, symbols, units_per_mm, palette, stroke_width_mm, show_attach,
-    )
-    addition = f"<defs>\n{defs}\n</defs>\n{group}\n"
+    if expand:
+        addition = build_expanded_group(
+            placements, library, piece_scale, units_per_mm, palette,
+            stroke_width_mm, show_attach, attach_dot_radius_mm,
+        ) + "\n"
+    else:
+        defs, symbols = build_defs(
+            library, piece_scale, units_per_mm, show_attach, attach_dot_radius_mm,
+        )
+        group = build_fill_group(
+            placements, symbols, units_per_mm, palette, stroke_width_mm, show_attach,
+        )
+        addition = f"<defs>\n{defs}\n</defs>\n{group}\n"
 
     match = _CLOSING_SVG.search(original_svg)
     if not match:

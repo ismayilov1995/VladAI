@@ -290,7 +290,26 @@ that outside selectors do not reach, so a `#mosaic .A path {}` rule silently
 does nothing. Inherited presentation attributes on the `<use>` itself do cross
 into the clone, which is why the attribute works.
 
+Every `<use>` carries both `xlink:href` and `href`. Plain `href` is SVG 2;
+Illustrator reads SVG 1.1, where the attribute is `xlink:href`, and it draws
+nothing at all for a reference it does not recognise. Browsers take either, so
+a browser preview cannot catch this on its own.
+
 Deleting the one appended group restores the original file exactly.
+
+**Plain paths** under Markers writes every placement as its own `<path>`, with
+no `<defs>` and no references anywhere. Several times the bytes and identical
+on screen — reach for it when a downstream tool mishandles `<use>`.
+
+### Thread colours
+
+One palette serves the preview and the export, so what you download is what you
+saw. That constrains it: the preview draws on dark fabric, an exported SVG
+opens on a white artboard, and every colour has to stay legible on both. A
+near-white reads beautifully on the fabric and arrives in Illustrator as a
+blank panel, so near-whites and near-blacks are out. `test_svgout.py` holds the
+palette to a contrast floor against both grounds, and checks the TypeScript and
+Python copies have not drifted apart.
 
 ---
 

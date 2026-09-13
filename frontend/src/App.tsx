@@ -149,9 +149,10 @@ export function App() {
       pieceScale: params.piece_scale,
       unitsPerMm: pack.units_per_mm,
       showAttach: render.showAttach,
+      expand: render.expand,
     })
     downloadText(filledFilename(panel.upload.filename), svg)
-  }, [pack, library, panel, params.piece_scale, render.showAttach])
+  }, [pack, library, panel, params.piece_scale, render.showAttach, render.expand])
 
   const provenance = useMemo(
     () => libraries.find((entry) => entry.id === libraryId)?.provenance ?? '',

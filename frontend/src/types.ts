@@ -130,8 +130,11 @@ export const ATTACH_DOT_RADIUS_MM = 0.45
  */
 export interface RenderOptions {
   showAttach: boolean
+  /** Export plain paths instead of <defs> + <use>. */
+  expand: boolean
 }
 
 export const DEFAULT_RENDER_OPTIONS: RenderOptions = {
   showAttach: false,
+  expand: false,
 }

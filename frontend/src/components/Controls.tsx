@@ -300,6 +300,22 @@ export function Controls({
         />
       </section>
 
+      <section className="space-y-3">
+        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+          Export
+        </h2>
+        <Toggle
+          label="Plain paths"
+          checked={render.expand}
+          hint={
+            'Writes every piece as its own path instead of one reused definition. '
+            + 'Several times larger, and the thing to try when the download opens '
+            + 'empty somewhere.'
+          }
+          onChange={(value) => { onRender({ expand: value }) }}
+        />
+      </section>
+
       <details className="group">
         <summary className="cursor-pointer list-none text-[11px] font-semibold uppercase
                             tracking-wider text-neutral-500 hover:text-neutral-400">
