@@ -18,6 +18,15 @@ from .svgpath import DEFAULT_TOLERANCE, Ring, ring_area, rings_bbox, shape_to_ri
 
 SVG_NS = "http://www.w3.org/2000/svg"
 
+# Illustrator mangles duplicate object names into "calib_1_", "calib_2_" on
+# export. Accepting that exact shape turns a confusing "no scale found" into a
+# working file; anything looser risks silently mis-scaling on an unrelated id.
+_CALIB_ID = re.compile(r"^calib(_\d+_)?$")
+
+
+def _is_calib_id(value: str) -> bool:
+    return bool(_CALIB_ID.match(value.strip())) if value else False
+
 # Elements whose contents are definitions, not drawn content.
 _NON_RENDERING = {
     "defs", "clipPath", "mask", "marker", "symbol", "pattern",
@@ -162,6 +171,32 @@ def parse_panel(svg_text: str, tolerance: float = DEFAULT_TOLERANCE) -> PanelDoc
         calib_width_units=None,
     )
 
+    def collect_rings(node: ET.Element, ctm: Matrix) -> list[Ring]:
+        """Every ring under `node`, in the document's user units."""
+        found: list[Ring] = []
+        for child in node:
+            tag = _local(child.tag)
+            if tag in _NON_RENDERING:
+                continue
+            attrs = dict(child.attrib)
+            local_ctm = multiply(ctm, parse_transform(attrs.get("transform")))
+            if tag in ("g", "a", "svg", "switch"):
+                found.extend(collect_rings(child, local_ctm))
+            elif tag in _GEOMETRY:
+                found.extend(
+                    transform_ring(local_ctm, r)
+                    for r in shape_to_rings(tag, attrs, tolerance)
+                )
+        return found
+
+    def set_calib(rings: list[Ring]) -> None:
+        # First one wins, so a document with more than one calibration mark
+        # scales predictably rather than by document order.
+        if doc.calib_width_units is not None or not rings:
+            return
+        min_x, _, max_x, _ = rings_bbox(rings)
+        doc.calib_width_units = max_x - min_x
+
     def walk(node: ET.Element, ctm: Matrix, hidden: bool) -> None:
         for child in node:
             tag = _local(child.tag)
@@ -170,7 +205,16 @@ def parse_panel(svg_text: str, tolerance: float = DEFAULT_TOLERANCE) -> PanelDoc
             attrs = dict(child.attrib)
             local_ctm = multiply(ctm, parse_transform(attrs.get("transform")))
             child_hidden = hidden or _is_hidden(attrs)
+            is_calib = _is_calib_id(attrs.get("id", ""))
+
             if tag in ("g", "a", "svg", "switch"):
+                # Drawing tools put the id where the user put the name, and in
+                # Illustrator naming a *layer* lands it on the group rather
+                # than the shape. Measure the group and keep it out of the
+                # fill, instead of failing and calling the document unscalable.
+                if is_calib:
+                    set_calib(collect_rings(child, local_ctm))
+                    continue
                 walk(child, local_ctm, child_hidden)
                 continue
             if tag not in _GEOMETRY:
@@ -182,9 +226,8 @@ def parse_panel(svg_text: str, tolerance: float = DEFAULT_TOLERANCE) -> PanelDoc
             rings = [transform_ring(local_ctm, r) for r in rings]
             element_id = attrs.get("id", "")
 
-            if element_id == "calib":
-                min_x, _, max_x, _ = rings_bbox(rings)
-                doc.calib_width_units = max_x - min_x
+            if is_calib:
+                set_calib(rings)
                 continue
             if child_hidden or not _has_fill(attrs):
                 continue

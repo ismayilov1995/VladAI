@@ -133,7 +133,9 @@ Then open <http://localhost:8000>.
 ## Tests
 
 ```sh
-cd backend && python -m pytest
+cd backend
+pip install -r requirements-dev.txt   # pytest and httpx, once
+python -m pytest
 ```
 
 The gate is `tests/test_pack_velvet.py`: it packs `samples/Velvet.svg` at 2×
@@ -192,6 +194,18 @@ width in user units by that to get units/mm.
 
 If there is no `#calib` element the app says so and asks for units/mm directly.
 **It never guesses the scale.**
+
+**From Illustrator**: draw a rectangle exactly 100 mm wide, name it `calib` in
+the Layers panel, and export with **Object IDs: Layer Names** — that setting is
+what turns the name into an `id`. Naming the *layer* rather than the object
+works too: the id lands on the exported `<g>`, and the group is measured across
+its contents and kept out of the fill. Illustrator's `calib_1_` mangling of a
+duplicate name is also accepted. Only the geometry is measured, so stroke
+weight does not affect the reading, and when a document holds more than one
+mark the first wins.
+
+**From Inkscape**: set the object's ID in *Object Properties* (Ctrl+Shift+O) and
+save as Plain or Inkscape SVG.
 
 ### 2. Library
 

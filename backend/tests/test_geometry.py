@@ -278,3 +278,71 @@ class TestPanelParsing:
     def test_non_svg_input_raises(self):
         with pytest.raises(ValueError):
             parse_panel("<html><body>nope</body></html>")
+
+
+class TestCalibDiscovery:
+    """Where drawing tools actually put the id.
+
+    Naming a *layer* in Illustrator lands the id on the exported group, not on
+    the shape, and duplicate names come out mangled. Both are ordinary things
+    for a designer to do, so both have to scale the document.
+    """
+
+    PANEL = '<rect id="panel" width="90" height="90" fill="#333"/>'
+
+    def parse(self, body: str):
+        return parse_panel(
+            f'<svg xmlns="http://www.w3.org/2000/svg">{body}{self.PANEL}</svg>'
+        )
+
+    def test_named_object(self):
+        doc = self.parse('<rect id="calib" width="100" height="4"/>')
+        assert doc.calib_width_units == pytest.approx(100.0)
+
+    def test_named_layer_puts_the_id_on_the_group(self):
+        doc = self.parse('<g id="calib"><rect width="100" height="4"/></g>')
+        assert doc.calib_width_units == pytest.approx(100.0)
+
+    def test_a_calibration_group_is_not_also_filled(self):
+        doc = self.parse('<g id="calib"><rect width="100" height="4" fill="#000"/></g>')
+        assert {s.element_id for s in doc.shapes} == {"panel"}
+
+    def test_group_transform_is_applied(self):
+        doc = self.parse('<g id="calib" transform="scale(2)"><rect width="50" height="4"/></g>')
+        assert doc.calib_width_units == pytest.approx(100.0)
+
+    def test_group_measures_across_all_its_contents(self):
+        doc = self.parse(
+            '<g id="calib"><rect width="40" height="4"/>'
+            '<rect x="60" width="40" height="4"/></g>'
+        )
+        assert doc.calib_width_units == pytest.approx(100.0)
+
+    def test_illustrator_duplicate_suffix(self):
+        """Illustrator exports a second object of the same name as calib_1_."""
+        doc = self.parse('<rect id="calib_1_" width="100" height="4"/>')
+        assert doc.calib_width_units == pytest.approx(100.0)
+
+    @pytest.mark.parametrize("bad", ["calibration", "calibration_note", "mycalib", "calib2"])
+    def test_a_merely_similar_id_is_not_a_calibration_mark(self, bad):
+        """Matching loosely would silently mis-scale the whole panel."""
+        doc = self.parse(f'<rect id="{bad}" width="100" height="4" fill="#000"/>')
+        assert doc.calib_width_units is None
+        assert bad in {s.element_id for s in doc.shapes}
+
+    def test_first_calibration_mark_wins(self):
+        """Two marks must scale predictably rather than by document order."""
+        doc = self.parse(
+            '<rect id="calib" width="100" height="4"/>'
+            '<rect id="calib_1_" width="250" height="4"/>'
+        )
+        assert doc.calib_width_units == pytest.approx(100.0)
+
+    def test_a_nested_layer_still_counts(self):
+        doc = self.parse('<g><g id="calib"><rect width="100" height="4"/></g></g>')
+        assert doc.calib_width_units == pytest.approx(100.0)
+
+    def test_stroke_width_does_not_inflate_the_measurement(self):
+        """The mark is measured from its geometry, not its visual bounds."""
+        doc = self.parse('<rect id="calib" width="100" height="4" stroke-width="8"/>')
+        assert doc.calib_width_units == pytest.approx(100.0)
