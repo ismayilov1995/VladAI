@@ -150,6 +150,22 @@ Frontend type checking:
 cd frontend && npm run typecheck
 ```
 
+### Container check
+
+The runtime stage has been built and run: it comes up as the non-root `vlada`
+user on Python 3.12.14, reports `healthy` to Docker's own healthcheck, serves
+the built frontend, and packs `Velvet.svg` to **4,924 pieces at 52.67%** — the
+same numbers the host produces, so the result is reproducible across Python
+3.11 and 3.12. `docker compose config` validates, and the compose `tmpfs` mount
+accepts uploads from uid 10001.
+
+The frontend stage was not built here: this sandbox intercepts TLS with its own
+CA, so `npm ci` and `pip install` cannot verify certificates inside a build
+container. On an ordinary host both reach their registries normally. The pinned
+requirements were separately confirmed to resolve for CPython 3.12 on
+`manylinux_2_28_x86_64` — note that `numpy==2.4.6` needs that baseline (glibc
+2.28+), which `python:3.12-slim` satisfies.
+
 ---
 
 ## Using it
