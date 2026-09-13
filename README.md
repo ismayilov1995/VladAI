@@ -87,6 +87,20 @@ server {
 }
 ```
 
+### One command
+
+```sh
+./run.sh          # macOS, Linux
+run.cmd           # Windows
+```
+
+Builds the frontend, sets up Python, and serves everything on
+<http://localhost:8000>. Safe to re-run — it skips what is already done;
+`./run.sh --clean` redoes it from scratch, and `PORT=9000 ./run.sh` moves it.
+
+Needs Node 20+ and Python 3.11+; the script checks both and says where to get
+them if they are missing.
+
 ### Local development
 
 Two processes, because Vite serves the frontend with hot reload and proxies
