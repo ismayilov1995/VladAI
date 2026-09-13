@@ -31,6 +31,8 @@ export function App() {
   const [render, setRender] = useState<RenderOptions>(DEFAULT_RENDER_OPTIONS)
   const [calibMm, setCalibMm] = useState(100)
   const [unitsPerMm, setUnitsPerMm] = useState<number | null>(null)
+  // null means "let the server decide", which is the right default.
+  const [shapeIds, setShapeIds] = useState<string[] | null>(null)
 
   const [pack, setPack] = useState<PackResponse | null>(null)
   const [busy, setBusy] = useState(false)
@@ -71,6 +73,7 @@ export function App() {
       const [svgText, upload] = await Promise.all([file.text(), uploadPanel(file)])
       setPanel({ upload, svgText })
       setPack(null)
+      setShapeIds(null)
       // A file that carries no calib element needs the scale typed in. Seed the
       // box with the document's own units so the number is a starting point
       // rather than a blank, but never treat it as a measurement.
@@ -108,7 +111,7 @@ export function App() {
         library: libraryId,
         calibMm,
         unitsPerMm: panel.upload.needs_scale ? unitsPerMm : null,
-        shapeIds: null,
+        shapeIds,
         params,
         signal: controller.signal,
       })
@@ -131,7 +134,7 @@ export function App() {
     }, DEBOUNCE_MS)
 
     return () => { window.clearTimeout(timer) }
-  }, [panel, libraryId, calibMm, unitsPerMm, params])
+  }, [panel, libraryId, calibMm, unitsPerMm, shapeIds, params])
 
   useEffect(() => () => { abortRef.current?.abort() }, [])
 
@@ -199,6 +202,10 @@ export function App() {
           needsScale={panel?.upload.needs_scale ?? false}
           unitsPerMm={unitsPerMm}
           onUnitsPerMm={setUnitsPerMm}
+          shapes={panel?.upload.shapes ?? []}
+          shapeIds={shapeIds}
+          onShapeIds={setShapeIds}
+          unitsPerMmEffective={pack?.units_per_mm ?? null}
           disabled={!panel}
         />
 

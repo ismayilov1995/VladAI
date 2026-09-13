@@ -1,4 +1,4 @@
-import type { LibrarySummary, PackParams, RenderOptions } from '../types'
+import type { LibrarySummary, PackParams, RenderOptions, ShapeInfo } from '../types'
 
 interface SliderProps {
   label: string
@@ -85,14 +85,35 @@ interface Props {
   needsScale: boolean
   unitsPerMm: number | null
   onUnitsPerMm: (value: number) => void
+  shapes: ShapeInfo[]
+  shapeIds: string[] | null
+  onShapeIds: (ids: string[] | null) => void
+  unitsPerMmEffective: number | null
   disabled: boolean
 }
 
 export function Controls({
   params, onParams, render, onRender, attachPointCount,
   libraries, libraryId, onLibrary,
-  calibMm, onCalibMm, needsScale, unitsPerMm, onUnitsPerMm, disabled,
+  calibMm, onCalibMm, needsScale, unitsPerMm, onUnitsPerMm,
+  shapes, shapeIds, onShapeIds, unitsPerMmEffective, disabled,
 }: Props) {
+  const chosen = new Set(
+    shapeIds ?? shapes.filter((s) => s.auto_selected).map((s) => s.id),
+  )
+  const anyPainted = shapes.some((s) => s.filled)
+
+  const toggleShape = (id: string) => {
+    const next = new Set(chosen)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    onShapeIds(next.size === 0 ? null : [...next])
+  }
+
+  const areaMm2 = (shape: ShapeInfo) =>
+    unitsPerMmEffective && unitsPerMmEffective > 0
+      ? shape.area_units / (unitsPerMmEffective * unitsPerMmEffective)
+      : null
   const library = libraries.find((entry) => entry.id === libraryId)
   const [lo, hi] = library?.size_range_mm ?? [0, 0]
 
@@ -167,6 +188,45 @@ export function Controls({
           </label>
         )}
       </section>
+
+      {shapes.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+            Region to fill
+          </h2>
+          <ul className="space-y-1">
+            {shapes.map((shape) => {
+              const mm2 = areaMm2(shape)
+              return (
+                <li key={shape.id || shape.tag}>
+                  <label className="flex cursor-pointer items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={chosen.has(shape.id)}
+                      onChange={() => { toggleShape(shape.id) }}
+                      className="h-3.5 w-3.5 rounded border-neutral-600 bg-neutral-900
+                                 accent-amber-400"
+                    />
+                    <span className="min-w-0 flex-1 truncate font-mono text-xs
+                                     text-neutral-300">
+                      {shape.id || `<${shape.tag}>`}
+                    </span>
+                    <span className="shrink-0 font-mono text-[11px] text-neutral-500">
+                      {mm2 === null ? '—' : `${(mm2 / 1e6).toFixed(2)} m²`}
+                    </span>
+                  </label>
+                </li>
+              )
+            })}
+          </ul>
+          {!anyPainted && (
+            <p className="text-[11px] leading-snug text-neutral-500">
+              Nothing in this file is filled, so the largest outline was taken as
+              the panel. If that picked a seam line, choose the right one here.
+            </p>
+          )}
+        </section>
+      )}
 
       <section className="space-y-4">
         <h2 className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">

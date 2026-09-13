@@ -43,6 +43,11 @@ class ShapeInfo(BaseModel):
     tag: str
     area_units: float
     bbox: list[float]
+    # False for a stroked outline with no fill, which is how garment panels
+    # usually arrive; such a document is packed from its largest outline.
+    filled: bool = True
+    # What the server would use if the client sends no shape_ids.
+    auto_selected: bool = False
 
 
 class UploadResponse(BaseModel):

@@ -41,12 +41,15 @@ class CalibrationError(ValueError):
 
 @dataclass
 class Shape:
-    """One filled region in millimetres."""
+    """One closed region in millimetres."""
 
     element_id: str
     tag: str
     rings: list[Ring]
     fill_rule: str = "nonzero"
+    # Whether the document painted this shape. A panel drawn as a stroked
+    # outline with no fill is still a region; see `fillable_shapes`.
+    filled: bool = True
 
     def area(self) -> float:
         return abs(sum(ring_area(r) for r in self.rings))
@@ -136,6 +139,26 @@ def _has_fill(attrs: dict[str, str]) -> bool:
         except ValueError:
             pass
     return True
+
+
+MIN_CANDIDATE_AREA = 1e-9
+
+
+def fillable_shapes(shapes: list[Shape]) -> list[Shape]:
+    """The shapes to pack, when the caller has not chosen explicitly.
+
+    A painted shape says plainly that it is a region, so when the document has
+    any, those are it. When nothing is painted - a drawing of stroked outlines,
+    which is how garment panels usually arrive - the largest closed outline is
+    taken instead, because a panel is bigger than the seam lines and notches
+    drawn on it. That is a guess, so callers that can offer the choice should:
+    every closed outline is listed in `candidates`.
+    """
+    usable = [s for s in shapes if s.area() > MIN_CANDIDATE_AREA]
+    painted = [s for s in usable if s.filled]
+    if painted:
+        return painted
+    return [max(usable, key=lambda s: s.area())] if usable else []
 
 
 def parse_panel(svg_text: str, tolerance: float = DEFAULT_TOLERANCE) -> PanelDocument:
@@ -229,13 +252,19 @@ def parse_panel(svg_text: str, tolerance: float = DEFAULT_TOLERANCE) -> PanelDoc
             if is_calib:
                 set_calib(rings)
                 continue
-            if child_hidden or not _has_fill(attrs):
+            if child_hidden:
                 continue
 
             fill_rule = (_resolve(attrs, "fill-rule") or "nonzero").strip().lower()
             if fill_rule not in ("nonzero", "evenodd"):
                 fill_rule = "nonzero"
-            doc.shapes.append(Shape(element_id, tag, rings, fill_rule))
+            # Unpainted outlines are kept rather than dropped. Technical
+            # garment drawings routinely give a panel a stroke and no fill, and
+            # that outline is still the region to fill; `fillable_shapes`
+            # decides which of these actually get used.
+            doc.shapes.append(
+                Shape(element_id, tag, rings, fill_rule, _has_fill(attrs))
+            )
 
     walk(root, IDENTITY, False)
 
@@ -246,12 +275,17 @@ def parse_panel(svg_text: str, tolerance: float = DEFAULT_TOLERANCE) -> PanelDoc
             "index": i,
             "area_units": s.area(),
             "bbox": list(s.bbox()),
+            "filled": s.filled,
         }
         for i, s in enumerate(doc.shapes)
+        if s.area() > 0
     ]
     # Largest first: the panel outline is nearly always the biggest shape, so a
     # caller that just takes the first entry gets the sensible default.
     doc.candidates.sort(key=lambda c: -c["area_units"])
+    chosen = {id(s) for s in fillable_shapes(doc.shapes)}
+    for candidate in doc.candidates:
+        candidate["auto_selected"] = id(doc.shapes[candidate["index"]]) in chosen
     return doc
 
 
@@ -266,15 +300,16 @@ def shapes_to_mm(shapes: list[Shape], units_per_mm: float) -> list[Shape]:
             s.tag,
             [[(x * inv, y * inv) for x, y in ring] for ring in s.rings],
             s.fill_rule,
+            s.filled,
         )
         for s in shapes
     ]
 
 
 def select_shapes(doc: PanelDocument, ids: list[str] | None) -> list[Shape]:
-    """Pick the shapes to fill; `None` or empty means every filled shape."""
+    """Pick the shapes to fill; `None` or empty defers to `fillable_shapes`."""
     if not ids:
-        return list(doc.shapes)
+        return fillable_shapes(doc.shapes)
     wanted = set(ids)
-    chosen = [s for s in doc.shapes if s.element_id in wanted]
-    return chosen or list(doc.shapes)
+    chosen = [s for s in doc.shapes if s.element_id in wanted and s.area() > MIN_CANDIDATE_AREA]
+    return chosen or fillable_shapes(doc.shapes)

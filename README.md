@@ -207,6 +207,23 @@ mark the first wins.
 **From Inkscape**: set the object's ID in *Object Properties* (Ctrl+Shift+O) and
 save as Plain or Inkscape SVG.
 
+Illustrator exports in points, not pixels, so a 50 mm square comes out 141.7
+units wide. That is fine — the number you type is the real-world width, and
+units/mm follows from it.
+
+### Which shape gets filled
+
+A painted shape says plainly that it is a region, so when the document has any,
+those are filled. When nothing is painted — a drawing of stroked outlines,
+which is how garment panels usually arrive — the largest closed outline is
+taken instead, because a panel is bigger than the seam lines and notches drawn
+on it.
+
+That last part is a guess, so the app lists every closed outline under **Region
+to fill** with its area and lets you override it. Zero-area strokes such as
+grain lines are not offered; hidden shapes and the calibration mark are never
+candidates.
+
 ### 2. Library
 
 MARBLE mosaic, 22 pieces, 9.4–24.9 mm at 1× — so 19–50 mm at the default 2×

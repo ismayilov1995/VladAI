@@ -19,6 +19,10 @@ export interface ShapeInfo {
   tag: string
   area_units: number
   bbox: number[]
+  /** False for a stroked outline with no fill — how garment panels usually arrive. */
+  filled: boolean
+  /** What the server uses when the client sends no shape_ids. */
+  auto_selected: boolean
 }
 
 export interface UploadResponse {

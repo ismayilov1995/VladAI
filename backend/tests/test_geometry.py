@@ -9,7 +9,7 @@ import pytest
 
 from mosaic_fill.matrix import IDENTITY, apply_to_point, parse_transform, rotate
 from mosaic_fill.raster import dilate, erode, rasterize_rings
-from mosaic_fill.svgdoc import parse_panel
+from mosaic_fill.svgdoc import fillable_shapes, parse_panel, select_shapes
 from mosaic_fill.svgpath import path_to_rings, ring_area, ring_centroid, shape_to_rings
 
 
@@ -247,9 +247,19 @@ class TestPanelParsing:
         doc = parse_panel(self.SVG)
         assert "calib" not in {s.element_id for s in doc.shapes}
 
-    def test_hidden_and_unfilled_shapes_are_excluded(self):
+    def test_hidden_shapes_are_excluded(self):
         doc = parse_panel(self.SVG)
-        assert {s.element_id for s in doc.shapes} == {"panel"}
+        assert "hidden" not in {s.element_id for s in doc.shapes}
+
+    def test_an_unfilled_shape_is_kept_but_marked_unpainted(self):
+        doc = parse_panel(self.SVG)
+        by_id = {s.element_id: s for s in doc.shapes}
+        assert by_id["panel"].filled is True
+        assert by_id["unfilled"].filled is False
+
+    def test_a_painted_shape_wins_over_an_unpainted_one(self):
+        doc = parse_panel(self.SVG)
+        assert [s.element_id for s in fillable_shapes(doc.shapes)] == ["panel"]
 
     def test_missing_calib_is_reported_not_guessed(self):
         doc = parse_panel(
@@ -346,3 +356,68 @@ class TestCalibDiscovery:
         """The mark is measured from its geometry, not its visual bounds."""
         doc = self.parse('<rect id="calib" width="100" height="4" stroke-width="8"/>')
         assert doc.calib_width_units == pytest.approx(100.0)
+
+
+class TestUnpaintedOutlines:
+    """A garment panel usually arrives as a stroke with no fill.
+
+    Requiring a painted shape made those documents pack to nothing, which is
+    not a thing the user did wrong.
+    """
+
+    def parse(self, body: str):
+        return parse_panel(f'<svg xmlns="http://www.w3.org/2000/svg">{body}</svg>')
+
+    def test_a_lone_stroked_outline_is_the_region(self):
+        doc = self.parse('<path id="cut" fill="none" stroke="#000" '
+                         'd="M0,0 H400 V500 H0 Z"/>')
+        assert [s.element_id for s in fillable_shapes(doc.shapes)] == ["cut"]
+
+    def test_the_largest_outline_wins_over_the_lines_drawn_on_it(self):
+        """Seam lines and notches are smaller than the panel they sit on."""
+        doc = self.parse(
+            '<path id="cut" fill="none" d="M0,0 H400 V500 H0 Z"/>'
+            '<path id="seam" fill="none" d="M20,20 H380 V480 H20 Z"/>'
+            '<path id="notch" fill="none" d="M10,10 H30 V30 H10 Z"/>'
+        )
+        assert [s.element_id for s in fillable_shapes(doc.shapes)] == ["cut"]
+
+    def test_every_closed_outline_is_offered_as_a_candidate(self):
+        """The pick is a guess, so the caller must be able to override it."""
+        doc = self.parse(
+            '<path id="cut" fill="none" d="M0,0 H400 V500 H0 Z"/>'
+            '<path id="seam" fill="none" d="M20,20 H380 V480 H20 Z"/>'
+        )
+        assert {c["id"] for c in doc.candidates} == {"cut", "seam"}
+        assert all(c["filled"] is False for c in doc.candidates)
+
+    def test_an_explicit_choice_overrides_the_guess(self):
+        doc = self.parse(
+            '<path id="cut" fill="none" d="M0,0 H400 V500 H0 Z"/>'
+            '<path id="seam" fill="none" d="M20,20 H380 V480 H20 Z"/>'
+        )
+        assert [s.element_id for s in select_shapes(doc, ["seam"])] == ["seam"]
+
+    def test_zero_area_strokes_are_not_candidates(self):
+        """A grain line is a stroke, not a region."""
+        doc = self.parse(
+            '<path id="cut" fill="none" d="M0,0 H400 V500 H0 Z"/>'
+            '<line id="grain" x1="0" y1="0" x2="400" y2="500" stroke="#000"/>'
+        )
+        assert {c["id"] for c in doc.candidates} == {"cut"}
+
+    def test_a_hidden_outline_is_still_excluded(self):
+        doc = self.parse(
+            '<path id="cut" fill="none" d="M0,0 H400 V500 H0 Z"/>'
+            '<path id="old" fill="none" display="none" d="M0,0 H900 V900 H0 Z"/>'
+        )
+        assert [s.element_id for s in fillable_shapes(doc.shapes)] == ["cut"]
+
+    def test_the_calibration_mark_is_never_a_region(self):
+        """It is stroked and unfilled, so it must not win the fallback."""
+        doc = self.parse(
+            '<rect id="calib" fill="none" width="1000" height="1000"/>'
+            '<path id="cut" fill="none" d="M0,0 H400 V500 H0 Z"/>'
+        )
+        assert [s.element_id for s in fillable_shapes(doc.shapes)] == ["cut"]
+        assert doc.calib_width_units == pytest.approx(1000.0)
