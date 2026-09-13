@@ -47,6 +47,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="keep pieces this many mm clear of the panel edge")
     parser.add_argument("--shape-id", action="append", default=None,
                         help="restrict the fill to these element ids (repeatable)")
+    parser.add_argument("--compact", action="store_true",
+                        help="write <defs> + <use> instead of plain paths; smaller, "
+                             "but some readers (Illustrator) draw nothing for a "
+                             "<use> reference")
     parser.add_argument("--attach-dots", action="store_true",
                         help="mark each piece's stitch-down points in the exported SVG")
     parser.add_argument("--attach-radius", type=float, default=0.45,
@@ -119,6 +123,7 @@ def main(argv: list[str] | None = None) -> int:
         filled = build_filled_svg(
             doc.source, result.placements, library, params.piece_scale, units_per_mm,
             show_attach=args.attach_dots, attach_dot_radius_mm=args.attach_radius,
+            expand=not args.compact,
         )
         args.out.write_text(filled, encoding="utf-8")
         print(f"wrote {args.out}")

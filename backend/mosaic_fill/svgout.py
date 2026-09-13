@@ -17,9 +17,12 @@ same shape, and the reasons for that shape are worth stating:
     is SVG 2; Illustrator reads SVG 1.1, where the attribute is ``xlink:href``,
     and silently draws nothing for a reference it does not recognise. Browsers
     take either, so a browser preview cannot catch this on its own.
-  * ``expand=True`` writes every placement as its own ``<path>`` instead. The
-    file is several times larger, but it carries no references at all, which is
-    the thing to reach for when a consumer mishandles ``<use>``.
+  * ``expand`` is the default, and writes every placement as its own ``<path>``
+    with no references anywhere. The ``<defs>``/``<use>`` form above is the
+    ``expand=False`` option: it is the more elegant document, but a reference
+    only helps if the reader resolves it, and Illustrator does not. It saves
+    about 12% at working density (547 KB against 612 KB for a 4924-piece
+    panel), which is not worth a file that opens empty.
   * The uploaded document is never modified; the fill is appended as one new
     group that can be deleted in one action.
 """
@@ -224,7 +227,7 @@ def build_filled_svg(
     stroke_width_mm: float = 0.25,
     show_attach: bool = False,
     attach_dot_radius_mm: float = DEFAULT_ATTACH_RADIUS_MM,
-    expand: bool = False,
+    expand: bool = True,
 ) -> str:
     """Return the original document with one fill group appended.
 

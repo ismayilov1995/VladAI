@@ -130,11 +130,15 @@ export const ATTACH_DOT_RADIUS_MM = 0.45
  */
 export interface RenderOptions {
   showAttach: boolean
-  /** Export plain paths instead of <defs> + <use>. */
-  expand: boolean
+  /**
+   * Write <defs> + <use> instead of plain paths. Off by default: it saves
+   * about 12% and costs the file opening in Illustrator, which draws nothing
+   * for a <use> reference.
+   */
+  compact: boolean
 }
 
 export const DEFAULT_RENDER_OPTIONS: RenderOptions = {
   showAttach: false,
-  expand: false,
+  compact: false,
 }

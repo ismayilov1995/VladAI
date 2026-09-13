@@ -137,31 +137,31 @@ class TestFilledSvg:
         assert stripped == ORIGINAL
 
     def test_one_use_per_placement(self, marble):
-        filled = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0)
+        filled = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0, expand=False)
         assert count(r"<use ", filled) == len(PLACEMENTS)
 
     def test_transform_is_translate_then_rotate(self, marble):
-        filled = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0)
+        filled = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0, expand=False)
         assert 'transform="translate(90 120) rotate(45)"' in filled
         # A zero rotation is not worth the bytes.
         assert 'transform="translate(50 60)"' in filled
 
     def test_use_carries_xlink_href_for_svg_1_1_readers(self, marble):
         """Illustrator reads SVG 1.1 and draws nothing for a bare href."""
-        filled = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0)
+        filled = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0, expand=False)
         assert count(r'xlink:href="#mp', filled) == len(PLACEMENTS)
 
     def test_use_also_carries_plain_href_for_svg_2_readers(self, marble):
-        filled = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0)
+        filled = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0, expand=False)
         assert count(r'\shref="#mp', filled) == len(PLACEMENTS)
 
     def test_the_xlink_namespace_is_declared(self, marble):
         """An undeclared prefix makes the document invalid, not merely odd."""
-        filled = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0)
+        filled = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0, expand=False)
         assert 'xmlns:xlink="http://www.w3.org/1999/xlink"' in filled
 
     def test_every_reference_resolves_under_a_namespace_aware_parse(self, marble):
-        filled = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0)
+        filled = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0, expand=False)
         root = ET.fromstring(filled)
         svg, xlink = "{http://www.w3.org/2000/svg}", "{http://www.w3.org/1999/xlink}href"
         defined = {g.get("id") for g in root.iter(f"{svg}g") if g.get("id")}
@@ -170,18 +170,20 @@ class TestFilledSvg:
 
     def test_the_namespace_is_declared_on_our_own_group_not_the_document(self, marble):
         """The upload's root element stays byte-for-byte as it arrived."""
-        filled = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0)
+        filled = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0, expand=False)
         assert ORIGINAL.splitlines()[0] in filled
 
     def test_colour_is_an_attribute_not_a_stylesheet_rule(self, marble):
         """CSS selectors do not cross the <use> shadow boundary."""
-        filled = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0)
+        filled = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0, expand=False)
         assert count(r'<use [^>]*stroke="#', filled) == len(PLACEMENTS)
         assert "<style" not in filled
 
     def test_colour_attribute_only_when_dots_are_shown(self, marble):
-        plain = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0, show_attach=False)
-        dotted = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0, show_attach=True)
+        plain = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0,
+                                 show_attach=False, expand=False)
+        dotted = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0,
+                                  show_attach=True, expand=False)
         assert " color=" not in plain
         assert count(r'<use [^>]* color="#', dotted) == len(PLACEMENTS)
 
@@ -191,7 +193,8 @@ class TestFilledSvg:
             Placement(piece="mp01", x=float(i), y=0.0, angle=0.0, cls="A")
             for i in range(500)
         ]
-        filled = build_filled_svg(ORIGINAL, many, marble, 2.0, 1.0, show_attach=True)
+        filled = build_filled_svg(ORIGINAL, many, marble, 2.0, 1.0,
+                                  show_attach=True, expand=False)
         expected = sum(len(p.attach) for p in marble.pieces)
         assert count(r"<circle", filled) == expected
         assert count(r"<use ", filled) == 500
@@ -202,16 +205,22 @@ class TestFilledSvg:
 
     def test_unknown_piece_in_a_placement_is_skipped(self, marble):
         placements = [*PLACEMENTS, Placement(piece="nope", x=0, y=0, angle=0, cls="A")]
-        filled = build_filled_svg(ORIGINAL, placements, marble, 2.0, 1.0)
+        filled = build_filled_svg(ORIGINAL, placements, marble, 2.0, 1.0, expand=False)
         assert count(r"<use ", filled) == len(PLACEMENTS)
 
     def test_a_document_without_a_closing_tag_still_gets_the_fill(self, marble):
-        filled = build_filled_svg("<svg>", PLACEMENTS, marble, 2.0, 1.0)
+        filled = build_filled_svg("<svg>", PLACEMENTS, marble, 2.0, 1.0, expand=False)
         assert "<use " in filled
 
 
 class TestExpandedForm:
     """`expand=True` drops every reference, for consumers that mishandle <use>."""
+
+    def test_it_is_the_default(self, marble):
+        """A file that opens everywhere beats one that is 12% smaller."""
+        filled = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0)
+        assert "<use" not in filled
+        assert count(r"<path ", filled) == len(PLACEMENTS)
 
     def test_no_references_at_all(self, marble):
         filled = build_filled_svg(ORIGINAL, PLACEMENTS, marble, 2.0, 1.0, expand=True)

@@ -275,31 +275,27 @@ The dot marks a needle penetration point, so it stays a fixed physical size
 The filled SVG is your original document with one group appended:
 
 ```xml
-<defs>
-  <g id="mp07"><path fill="none" d="M…Z"/></g>
-</defs>
 <g id="mosaic-fill" fill="none" stroke-width="0.945" …>
-  <use href="#mp07" transform="translate(1559.1 446.7) rotate(75)" stroke="#c9a227"/>
+  <path stroke="#b08d57" d="M1559.1,446.7 L…Z"/>
 </g>
 ```
 
-Each piece is defined once in `<defs>`, centred on its own centroid, so
-`rotate()` spins it in place. Colour is a `stroke` **attribute** on each
-`<use>`, not a stylesheet rule — `<use>` clones its referent into a shadow tree
-that outside selectors do not reach, so a `#mosaic .A path {}` rule silently
-does nothing. Inherited presentation attributes on the `<use>` itself do cross
-into the clone, which is why the attribute works.
+One `<path>` per placement, rotation baked into the coordinates, no references
+anywhere. Deleting the one appended group restores the original file exactly.
 
-Every `<use>` carries both `xlink:href` and `href`. Plain `href` is SVG 2;
-Illustrator reads SVG 1.1, where the attribute is `xlink:href`, and it draws
-nothing at all for a reference it does not recognise. Browsers take either, so
-a browser preview cannot catch this on its own.
+**Compact file** under Export switches to `<defs>` + `<use>` instead: each
+piece defined once and referenced, which is the more elegant document and about
+12% smaller (547 KB against 612 KB on a 4924-piece panel). It is not the
+default because a reference only helps if the reader resolves it, and
+Illustrator does not — it draws nothing and you get a panel with only its
+outline. Browsers resolve both, so a browser preview cannot catch that.
 
-Deleting the one appended group restores the original file exactly.
-
-**Plain paths** under Markers writes every placement as its own `<path>`, with
-no `<defs>` and no references anywhere. Several times the bytes and identical
-on screen — reach for it when a downstream tool mishandles `<use>`.
+In the compact form, colour is a `stroke` **attribute** on each `<use>`, never a
+stylesheet rule: `<use>` clones its referent into a shadow tree that outside
+selectors do not reach, so a `#mosaic .A path {}` rule silently matches nothing,
+while inherited presentation attributes on the `<use>` do cross into the clone.
+Each `<use>` also carries both `xlink:href` and `href`, since plain `href` is
+SVG 2 and SVG 1.1 readers want the other spelling.
 
 ### Thread colours
 

@@ -305,14 +305,14 @@ export function Controls({
           Export
         </h2>
         <Toggle
-          label="Plain paths"
-          checked={render.expand}
+          label="Compact file"
+          checked={render.compact}
           hint={
-            'Writes every piece as its own path instead of one reused definition. '
-            + 'Several times larger, and the thing to try when the download opens '
-            + 'empty somewhere.'
+            'Reuses one definition per piece instead of writing every path. About '
+            + '12% smaller — but Illustrator draws nothing for a reused reference, '
+            + 'so leave this off unless you know your tool handles it.'
           }
-          onChange={(value) => { onRender({ expand: value }) }}
+          onChange={(value) => { onRender({ compact: value }) }}
         />
       </section>
 
