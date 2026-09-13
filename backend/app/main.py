@@ -23,7 +23,7 @@ from mosaic_fill.library import discover_libraries, library_fingerprint
 from mosaic_fill.packer import PackParams, pack
 from mosaic_fill.svgdoc import CalibrationError, parse_panel, select_shapes, shapes_to_mm
 
-from .cache import PackCache, UploadStore
+from .cache import UPLOAD_TTL_SECONDS, PackCache, UploadStore
 from .models import (
     LibraryDetail, LibrarySummary, PackRequest, PackResponse, UploadResponse,
 )
@@ -35,7 +35,9 @@ LIBRARY_DIR = Path(os.environ.get("VLADA_LIBRARY_DIR", BACKEND_DIR / "libraries"
 STATIC_DIR = Path(os.environ.get("VLADA_STATIC_DIR", BACKEND_DIR / "static"))
 UPLOAD_DIR = Path(os.environ["VLADA_UPLOAD_DIR"]) if os.environ.get("VLADA_UPLOAD_DIR") else None
 
-uploads = UploadStore(UPLOAD_DIR)
+UPLOAD_TTL = int(os.environ.get("VLADA_UPLOAD_TTL_SECONDS", UPLOAD_TTL_SECONDS))
+
+uploads = UploadStore(UPLOAD_DIR, UPLOAD_TTL)
 cache = PackCache()
 libraries = discover_libraries(LIBRARY_DIR)
 
@@ -43,6 +45,8 @@ libraries = discover_libraries(LIBRARY_DIR)
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     log.info("libraries: %s", ", ".join(sorted(libraries)) or "none")
+    log.info("uploads in %s, ttl %ss", uploads.root, UPLOAD_TTL)
+    uploads.sweep()
     sweeper = asyncio.create_task(_sweep_uploads())
     try:
         yield

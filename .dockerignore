@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/__pycache__
+**/*.pyc
+.venv/
+.git/
+.github/
+backend/static/
+frontend/node_modules/
+.pytest_cache/
+*.png
+shot.mjs
