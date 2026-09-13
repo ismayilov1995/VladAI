@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Build output: the frontend is built into the backend's static dir
+backend/static/
+
+# Local
+.DS_Store
+*.local
