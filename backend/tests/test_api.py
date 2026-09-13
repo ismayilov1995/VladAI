@@ -147,6 +147,38 @@ class TestPack:
         # 340-unit panel at x=20 spans 20-360 mm.
         assert panel["bbox"] == pytest.approx([20.0, 20.0, 360.0, 360.0], abs=0.01)
 
+    def test_the_reported_panel_size_scales_with_the_calibration(self, client):
+        """The size readout is the user's only check that the scale is right.
+
+        Halving the real-world width of the mark doubles units/mm, so the same
+        drawing has to report half the size.
+        """
+        file_id = upload(client, SMALL_PANEL_SVG)["file_id"]
+
+        def panel(calib_mm: float) -> tuple[float, float, float]:
+            body = client.post("/api/pack", json={
+                "file_id": file_id, "calib_mm": calib_mm, "params": QUICK,
+            }).json()
+            x0, y0, x1, y1 = body["panels"][0]["bbox"]
+            return body["units_per_mm"], x1 - x0, y1 - y0
+
+        upm100, w100, h100 = panel(100.0)
+        upm50, w50, h50 = panel(50.0)
+        assert upm50 == pytest.approx(upm100 * 2)
+        assert w50 == pytest.approx(w100 / 2, rel=1e-6)
+        assert h50 == pytest.approx(h100 / 2, rel=1e-6)
+
+    def test_a_millimetre_square_calibration_reads_true(self, client):
+        """calib 100 units wide, called 100 mm, means one unit is one mm."""
+        file_id = upload(client, SMALL_PANEL_SVG)["file_id"]
+        body = client.post("/api/pack", json={
+            "file_id": file_id, "calib_mm": 100.0, "params": QUICK,
+        }).json()
+        assert body["units_per_mm"] == pytest.approx(1.0)
+        x0, y0, x1, y1 = body["panels"][0]["bbox"]
+        # The panel rect is 340 units square, so it must read 340 mm square.
+        assert (x1 - x0, y1 - y0) == pytest.approx((340.0, 340.0), abs=0.01)
+
     def test_repeating_a_request_is_served_from_cache(self, client):
         file_id = upload(client, SMALL_PANEL_SVG)["file_id"]
         payload = {"file_id": file_id, "params": QUICK}
